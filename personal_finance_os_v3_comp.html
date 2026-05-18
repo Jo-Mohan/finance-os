@@ -1,0 +1,514 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+.app { padding: 1rem 0; }
+.tabs { display: flex; gap: 4px; margin-bottom: 1.5rem; border-bottom: 0.5px solid var(--color-border-tertiary); }
+.tab { padding: 8px 16px; font-size: 14px; cursor: pointer; border: none; background: none; color: var(--color-text-secondary); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tab.active { color: var(--color-text-primary); border-bottom: 2px solid var(--color-text-primary); font-weight: 500; }
+.tab:hover:not(.active) { color: var(--color-text-primary); }
+.panel { display: none; }
+.panel.active { display: block; }
+.metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 1.5rem; }
+.metric { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 12px 14px; }
+.metric-label { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 4px; }
+.metric-value { font-size: 20px; font-weight: 500; color: var(--color-text-primary); }
+.metric-sub { font-size: 11px; color: var(--color-text-tertiary); margin-top: 2px; }
+.card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-bottom: 1rem; }
+.card-title { font-size: 14px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 1rem; }
+.slider-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.slider-label { font-size: 13px; color: var(--color-text-secondary); min-width: 140px; }
+.slider-val { font-size: 13px; font-weight: 500; color: var(--color-text-primary); min-width: 72px; text-align: right; }
+.chart-wrap { position: relative; width: 100%; height: 260px; }
+.band-legend { display: flex; gap: 16px; font-size: 12px; color: var(--color-text-secondary); margin-bottom: 12px; flex-wrap: wrap; }
+.band-swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-right: 4px; vertical-align: middle; }
+.scenario-toggle { display: flex; gap: 6px; margin-bottom: 1rem; flex-wrap: wrap; }
+.scenario-btn { padding: 6px 14px; font-size: 12px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); cursor: pointer; background: none; color: var(--color-text-secondary); }
+.scenario-btn.active { background: var(--color-text-primary); color: var(--color-background-primary); border-color: var(--color-text-primary); }
+.job-label-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.job-name-input { font-size: 13px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); padding: 4px 8px; background: var(--color-background-secondary); color: var(--color-text-primary); width: 120px; }
+.hint { font-size: 12px; color: var(--color-text-tertiary); }
+.comp-row { display: flex; gap: 10px; margin-bottom: 12px; }
+.comp-block { flex: 1; background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 10px 12px; }
+.comp-block-label { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 4px; }
+.comp-block-val { font-size: 18px; font-weight: 500; color: var(--color-text-primary); }
+.comp-block-sub { font-size: 11px; color: var(--color-text-tertiary); margin-top: 2px; }
+.rsu-disclaimer { font-size: 12px; color: var(--color-text-secondary); background: var(--color-background-warning); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 10px 12px; margin-bottom: 1rem; line-height: 1.5; }
+.vest-table { width: 100%; font-size: 13px; border-collapse: collapse; }
+.vest-table th { text-align: left; color: var(--color-text-secondary); font-weight: 400; padding: 6px 0; border-bottom: 0.5px solid var(--color-border-tertiary); font-size: 12px; }
+.vest-table td { padding: 8px 0; border-bottom: 0.5px solid var(--color-border-tertiary); color: var(--color-text-primary); }
+.vest-table tr:last-child td { border-bottom: none; }
+.vest-bar-wrap { width: 80px; height: 6px; background: var(--color-background-secondary); border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 6px; }
+.vest-bar { height: 100%; border-radius: 3px; background: #1D9E75; }
+.cliff-badge { display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: var(--border-radius-md); background: var(--color-background-info); color: var(--color-text-info); margin-left: 6px; }
+.unavail-badge { display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: var(--border-radius-md); background: var(--color-background-secondary); color: var(--color-text-tertiary); margin-left: 6px; }
+.rec-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 0.5px solid var(--color-border-tertiary); font-size: 13px; }
+.rec-row:last-child { border-bottom: none; }
+.budget-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 13px; }
+.budget-cat { min-width: 100px; color: var(--color-text-secondary); }
+.budget-bar-bg { flex: 1; height: 6px; background: var(--color-background-secondary); border-radius: 3px; overflow: hidden; }
+.budget-bar-fill { height: 100%; border-radius: 3px; }
+.budget-amt { min-width: 80px; text-align: right; font-weight: 500; }
+.nw-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 13px; }
+.nw-label { min-width: 120px; color: var(--color-text-secondary); }
+.nw-bar-bg { flex: 1; height: 8px; background: var(--color-background-secondary); border-radius: 4px; overflow: hidden; }
+.nw-bar-fill { height: 100%; border-radius: 4px; }
+.nw-val { min-width: 80px; text-align: right; font-weight: 500; }
+input[type=range] { flex: 1; }
+.cc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1rem; }
+.cc-card { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 12px; }
+.cc-name { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+.cc-detail { font-size: 12px; color: var(--color-text-secondary); line-height: 1.5; }
+.badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: var(--border-radius-md); margin-top: 4px; }
+.badge-green { background: var(--color-background-success); color: var(--color-text-success); }
+.badge-blue { background: var(--color-background-info); color: var(--color-text-info); }
+.badge-amber { background: var(--color-background-warning); color: var(--color-text-warning); }
+</style>
+
+<div class="app">
+  <h2 class="sr-only">Personal Finance OS — comp breakdown, Monte Carlo simulator, RSU tracker, budget, cards, net worth</h2>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('simulate',this)"><i class="ti ti-chart-line" aria-hidden="true"></i> Simulate</button>
+    <button class="tab" onclick="switchTab('rsu',this)"><i class="ti ti-building-bank" aria-hidden="true"></i> RSUs</button>
+    <button class="tab" onclick="switchTab('budget',this)"><i class="ti ti-wallet" aria-hidden="true"></i> Budget</button>
+    <button class="tab" onclick="switchTab('cards',this)"><i class="ti ti-credit-card" aria-hidden="true"></i> Cards</button>
+    <button class="tab" onclick="switchTab('networth',this)"><i class="ti ti-trending-up" aria-hidden="true"></i> Net worth</button>
+  </div>
+
+  <!-- SIMULATE -->
+  <div id="tab-simulate" class="panel active">
+    <div class="metric-grid" id="sim-metrics"></div>
+
+    <div class="card">
+      <div class="card-title">Job scenarios</div>
+      <div class="job-label-row">
+        <span class="hint">Job 1</span>
+        <input class="job-name-input" id="job1-name" value="Job 1" oninput="updateJobLabels()">
+        <span class="hint" style="margin-left:8px;">Job 2</span>
+        <input class="job-name-input" id="job2-name" value="Job 2" oninput="updateJobLabels()">
+      </div>
+      <div class="scenario-toggle">
+        <button class="scenario-btn active" id="btn-job1" onclick="setScenario('job1')"><span id="lbl-btn-job1">Job 1</span></button>
+        <button class="scenario-btn" id="btn-job2" onclick="setScenario('job2')"><span id="lbl-btn-job2">Job 2</span></button>
+        <button class="scenario-btn" id="btn-custom" onclick="setScenario('custom')">Custom</button>
+      </div>
+
+      <div class="card-title" style="margin-top:4px;">Compensation</div>
+      <div class="slider-row">
+        <span class="slider-label">Base salary</span>
+        <input type="range" min="40000" max="500000" step="5000" id="sl-base" oninput="onSlider()">
+        <span class="slider-val" id="out-base">$150k</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label">Target bonus</span>
+        <input type="range" min="0" max="100" step="1" id="sl-bonus" oninput="onSlider()">
+        <span class="slider-val" id="out-bonus">10%</span>
+      </div>
+
+      <div class="comp-row" id="comp-summary"></div>
+
+      <div class="card-title" style="margin-top:8px;">Simulation inputs</div>
+      <div class="slider-row">
+        <span class="slider-label">Savings rate</span>
+        <input type="range" min="5" max="80" step="1" id="sl-savings" oninput="onSlider()">
+        <span class="slider-val" id="out-savings">30%</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label">Time horizon</span>
+        <input type="range" min="5" max="40" step="1" id="sl-years" oninput="onSlider()">
+        <span class="slider-val" id="out-years">20 yrs</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label">Side income / yr</span>
+        <input type="range" min="0" max="200000" step="5000" id="sl-side" oninput="onSlider()">
+        <span class="slider-val" id="out-side">$0</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Monte Carlo — 1,000 simulations</div>
+      <div style="font-size:12px; color:var(--color-text-tertiary); margin-bottom:10px;"><i class="ti ti-info-circle" aria-hidden="true"></i> Based on base + bonus only. RSUs shown separately — see RSU tab.</div>
+      <div class="band-legend">
+        <span><span class="band-swatch" style="background:#9FE1CB"></span>5th–95th percentile</span>
+        <span><span class="band-swatch" style="background:#1D9E75"></span>25th–75th percentile</span>
+        <span><span class="band-swatch" style="background:#085041"></span>Median</span>
+      </div>
+      <div class="chart-wrap"><canvas id="simChart" role="img" aria-label="Monte Carlo fan chart of net worth over time based on base and bonus only"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Spending shock — what if?</div>
+      <div class="slider-row">
+        <span class="slider-label">One-time expense</span>
+        <input type="range" min="0" max="300000" step="5000" id="sl-shock" oninput="onSlider()">
+        <span class="slider-val" id="out-shock">$0</span>
+      </div>
+      <div id="shock-impact" style="font-size:13px; color:var(--color-text-secondary); margin-top:4px;"></div>
+    </div>
+  </div>
+
+  <!-- RSU TAB -->
+  <div id="tab-rsu" class="panel">
+    <div class="rsu-disclaimer">
+      <i class="ti ti-alert-triangle" aria-hidden="true"></i> RSU values below reflect your grant at <strong>current stock price only</strong>. Future vest values depend on stock performance, which this tool does not model. Treat these figures as a reference point, not a forecast.
+    </div>
+
+    <div class="card">
+      <div class="card-title">Grant details</div>
+      <div class="slider-row">
+        <span class="slider-label">Total grant value</span>
+        <input type="range" min="0" max="1000000" step="10000" id="sl-rsu-grant" oninput="onRSU()">
+        <span class="slider-val" id="out-rsu-grant">$200k</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label">Vesting schedule</span>
+        <select id="sl-rsu-sched" onchange="onRSU()" style="flex:1; font-size:13px; padding:4px 8px; border:0.5px solid var(--color-border-secondary); border-radius:var(--border-radius-md); background:var(--color-background-secondary); color:var(--color-text-primary);">
+          <option value="4yr1cliff">4-year / 1-year cliff (standard)</option>
+          <option value="4yr">4-year monthly (no cliff)</option>
+          <option value="3yr">3-year equal annual</option>
+          <option value="backloaded">Backloaded (5/15/40/40)</option>
+        </select>
+        <span class="slider-val" style="visibility:hidden">—</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label">Start date (months ago)</span>
+        <input type="range" min="0" max="47" step="1" id="sl-rsu-start" oninput="onRSU()">
+        <span class="slider-val" id="out-rsu-start">0 mo</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Vesting schedule — at current stock price</div>
+      <div id="rsu-table-wrap"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Summary</div>
+      <div class="metric-grid" id="rsu-metrics"></div>
+    </div>
+  </div>
+
+  <!-- BUDGET -->
+  <div id="tab-budget" class="panel">
+    <div class="metric-grid" id="budget-metrics"></div>
+    <div class="card">
+      <div class="card-title">Monthly spending</div>
+      <div id="budget-bars"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Adjust monthly budget</div>
+      <div class="slider-row"><span class="slider-label">Rent / housing</span><input type="range" min="500" max="5000" step="100" id="sl-rent" oninput="onBudget()"><span class="slider-val" id="out-rent">$2,200</span></div>
+      <div class="slider-row"><span class="slider-label">Food & dining</span><input type="range" min="100" max="2000" step="50" id="sl-food" oninput="onBudget()"><span class="slider-val" id="out-food">$600</span></div>
+      <div class="slider-row"><span class="slider-label">Transport</span><input type="range" min="50" max="1000" step="50" id="sl-transport" oninput="onBudget()"><span class="slider-val" id="out-transport">$200</span></div>
+      <div class="slider-row"><span class="slider-label">Entertainment</span><input type="range" min="50" max="1000" step="50" id="sl-ent" oninput="onBudget()"><span class="slider-val" id="out-ent">$300</span></div>
+      <div class="slider-row"><span class="slider-label">Other</span><input type="range" min="50" max="2000" step="50" id="sl-other" oninput="onBudget()"><span class="slider-val" id="out-other">$400</span></div>
+    </div>
+  </div>
+
+  <!-- CARDS -->
+  <div id="tab-cards" class="panel">
+    <div class="card">
+      <div class="card-title">Your cards</div>
+      <div class="cc-grid">
+        <div class="cc-card"><div class="cc-name">Chase Sapphire Reserve</div><div class="cc-detail">3x travel & dining<br>$300 travel credit<br>$550 annual fee</div><span class="badge badge-blue">Travel</span></div>
+        <div class="cc-card"><div class="cc-name">Amex Gold</div><div class="cc-detail">4x dining & groceries<br>$120 dining credit<br>$250 annual fee</div><span class="badge badge-amber">Dining</span></div>
+        <div class="cc-card"><div class="cc-name">Chase Freedom Unlimited</div><div class="cc-detail">1.5x everything<br>No annual fee</div><span class="badge badge-green">Catchall</span></div>
+        <div class="cc-card"><div class="cc-name" style="color:var(--color-text-tertiary);">+ Add card</div><div class="cc-detail" style="margin-top:8px;">Connect a new card to get spend recommendations</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Spend optimizer</div>
+      <div class="rec-row"><span style="color:var(--color-text-secondary);"><i class="ti ti-tools-kitchen-2" aria-hidden="true"></i> Restaurants</span><span style="font-weight:500;">Amex Gold</span><span style="color:var(--color-text-success);font-size:12px;">4x pts (~8% back)</span></div>
+      <div class="rec-row"><span style="color:var(--color-text-secondary);"><i class="ti ti-shopping-cart" aria-hidden="true"></i> Groceries</span><span style="font-weight:500;">Amex Gold</span><span style="color:var(--color-text-success);font-size:12px;">4x pts (~8% back)</span></div>
+      <div class="rec-row"><span style="color:var(--color-text-secondary);"><i class="ti ti-plane" aria-hidden="true"></i> Flights & hotels</span><span style="font-weight:500;">Sapphire Reserve</span><span style="color:var(--color-text-success);font-size:12px;">3x pts (~6% back)</span></div>
+      <div class="rec-row"><span style="color:var(--color-text-secondary);"><i class="ti ti-device-laptop" aria-hidden="true"></i> Electronics</span><span style="font-weight:500;">Freedom Unlimited</span><span style="color:var(--color-text-success);font-size:12px;">1.5x pts (~2.25% back)</span></div>
+      <div class="rec-row"><span style="color:var(--color-text-secondary);"><i class="ti ti-dots" aria-hidden="true"></i> Everything else</span><span style="font-weight:500;">Freedom Unlimited</span><span style="color:var(--color-text-success);font-size:12px;">1.5x pts (~2.25% back)</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Sign-up bonus tracker</div>
+      <div class="rec-row"><span style="color:var(--color-text-secondary);">Sapphire Reserve</span><span style="font-size:12px;color:var(--color-text-success);">Earned ✓</span></div>
+      <div class="rec-row"><span style="color:var(--color-text-secondary);">Amex Gold</span><span style="font-size:12px;color:var(--color-text-warning);">$2,400 / $4,000 — 60 days left</span></div>
+    </div>
+  </div>
+
+  <!-- NET WORTH -->
+  <div id="tab-networth" class="panel">
+    <div class="metric-grid" id="nw-metrics"></div>
+    <div class="card"><div class="card-title">Assets</div><div id="nw-assets"></div></div>
+    <div class="card"><div class="card-title">Liabilities</div><div id="nw-liabilities"></div></div>
+    <div class="card">
+      <div class="card-title">Net worth velocity</div>
+      <div class="chart-wrap" style="height:180px;"><canvas id="nwChart" role="img" aria-label="Net worth over past 6 months"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+let simChart, nwChart;
+let scenario = 'job1';
+
+const jobDefaults = {
+  job1: { base: 150000, bonus: 10, savings: 30, years: 20, side: 0 },
+  job2: { base: 200000, bonus: 15, savings: 35, years: 20, side: 0 }
+};
+
+function fmt(n) {
+  if (n >= 1e6) return '$' + (n/1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return '$' + Math.round(n/1000) + 'k';
+  return '$' + Math.round(n);
+}
+function fmtFull(n) { return '$' + Math.round(n).toLocaleString(); }
+
+function randNormal() {
+  let u=0,v=0;
+  while(!u) u=Math.random(); while(!v) v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+}
+
+function runMC(annualSavings, years) {
+  const N=1000, mean=0.07, std=0.15;
+  let paths=[];
+  for(let i=0;i<N;i++){
+    let nw=0,path=[0];
+    for(let y=1;y<=years;y++){
+      nw=nw*(1+mean+std*randNormal())+annualSavings;
+      path.push(Math.max(0,nw));
+    }
+    paths.push(path);
+  }
+  const pct=(arr,p)=>[...arr].sort((a,b)=>a-b)[Math.floor(arr.length*p/100)];
+  let p5=[],p25=[],p50=[],p75=[],p95=[];
+  for(let y=0;y<=years;y++){
+    const v=paths.map(p=>p[y]);
+    p5.push(Math.round(pct(v,5))); p25.push(Math.round(pct(v,25)));
+    p50.push(Math.round(pct(v,50))); p75.push(Math.round(pct(v,75)));
+    p95.push(Math.round(pct(v,95)));
+  }
+  return {p5,p25,p50,p75,p95};
+}
+
+function updateJobLabels() {
+  const j1=document.getElementById('job1-name').value||'Job 1';
+  const j2=document.getElementById('job2-name').value||'Job 2';
+  document.getElementById('lbl-btn-job1').textContent=j1;
+  document.getElementById('lbl-btn-job2').textContent=j2;
+}
+
+function setScenario(s) {
+  scenario=s;
+  document.querySelectorAll('.scenario-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('btn-'+s).classList.add('active');
+  if(s==='job1'||s==='job2'){
+    const sc=jobDefaults[s];
+    document.getElementById('sl-base').value=sc.base;
+    document.getElementById('sl-bonus').value=sc.bonus;
+    document.getElementById('sl-savings').value=sc.savings;
+    document.getElementById('sl-years').value=sc.years;
+    document.getElementById('sl-side').value=sc.side;
+  }
+  onSlider();
+}
+
+function getSimInputs() {
+  return {
+    base: parseInt(document.getElementById('sl-base').value),
+    bonus: parseInt(document.getElementById('sl-bonus').value),
+    savings: parseInt(document.getElementById('sl-savings').value),
+    years: parseInt(document.getElementById('sl-years').value),
+    side: parseInt(document.getElementById('sl-side').value),
+    shock: parseInt(document.getElementById('sl-shock').value)
+  };
+}
+
+function getJobName() {
+  if(scenario==='job1') return document.getElementById('job1-name').value||'Job 1';
+  if(scenario==='job2') return document.getElementById('job2-name').value||'Job 2';
+  return 'Custom';
+}
+
+function onSlider() {
+  const {base,bonus,savings,years,side,shock}=getSimInputs();
+  const bonusAmt=Math.round(base*(bonus/100));
+  const totalCash=base+bonusAmt;
+  const annualSavings=totalCash*(savings/100)+side;
+
+  document.getElementById('out-base').textContent=fmt(base);
+  document.getElementById('out-bonus').textContent=bonus+'%';
+  document.getElementById('out-savings').textContent=savings+'%';
+  document.getElementById('out-years').textContent=years+' yrs';
+  document.getElementById('out-side').textContent=fmt(side);
+  document.getElementById('out-shock').textContent=fmt(shock);
+
+  document.getElementById('comp-summary').innerHTML=`
+    <div class="comp-block"><div class="comp-block-label">Base</div><div class="comp-block-val">${fmt(base)}</div><div class="comp-block-sub">guaranteed</div></div>
+    <div class="comp-block"><div class="comp-block-label">Target bonus</div><div class="comp-block-val">${fmt(bonusAmt)}</div><div class="comp-block-sub">${bonus}% of base</div></div>
+    <div class="comp-block"><div class="comp-block-label">Total cash</div><div class="comp-block-val">${fmt(totalCash)}</div><div class="comp-block-sub">base + bonus</div></div>
+    <div class="comp-block" style="border:0.5px dashed var(--color-border-secondary);"><div class="comp-block-label">RSUs</div><div class="comp-block-val" style="font-size:14px;color:var(--color-text-tertiary);">see RSU tab</div><div class="comp-block-sub">not modeled</div></div>
+  `;
+
+  const {p5,p25,p50,p75,p95}=runMC(annualSavings,years);
+
+  document.getElementById('sim-metrics').innerHTML=`
+    <div class="metric"><div class="metric-label">Scenario</div><div class="metric-value" style="font-size:15px;">${getJobName()}</div><div class="metric-sub">base + bonus only</div></div>
+    <div class="metric"><div class="metric-label">Median outcome</div><div class="metric-value">${fmt(p50[years])}</div><div class="metric-sub">in ${years} yrs</div></div>
+    <div class="metric"><div class="metric-label">Best case (95th)</div><div class="metric-value">${fmt(p95[years])}</div><div class="metric-sub">5% chance to beat</div></div>
+    <div class="metric"><div class="metric-label">Annual savings</div><div class="metric-value">${fmt(annualSavings)}</div><div class="metric-sub">${fmt(Math.round(annualSavings/12))}/mo</div></div>
+  `;
+
+  if(shock>0){
+    const opp=Math.round(shock*Math.pow(1.07,years));
+    const yrsLost=Math.round((shock/annualSavings)*10)/10;
+    document.getElementById('shock-impact').textContent=`A ${fmt(shock)} expense costs ~${fmt(opp)} in compounded opportunity cost over ${years} years (≈${yrsLost} years of savings).`;
+  } else {
+    document.getElementById('shock-impact').textContent='Move the slider to see how a large purchase affects your trajectory.';
+  }
+
+  const labels=Array.from({length:years+1},(_,i)=>i===0?'Now':'Yr '+i);
+  if(simChart) simChart.destroy();
+  simChart=new Chart(document.getElementById('simChart'),{
+    type:'line',
+    data:{labels,datasets:[
+      {data:p95,fill:'+3',backgroundColor:'rgba(159,225,203,0.25)',borderWidth:0,pointRadius:0,tension:0.4},
+      {data:p75,fill:'+1',backgroundColor:'rgba(29,158,117,0.3)',borderWidth:0,pointRadius:0,tension:0.4},
+      {data:p50,fill:false,borderColor:'#085041',borderWidth:2,pointRadius:0,tension:0.4,label:'Median'},
+      {data:p25,fill:false,borderWidth:0,pointRadius:0},
+      {data:p5,fill:false,borderWidth:0,pointRadius:0}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.dataset.label?ctx.dataset.label+': '+fmt(ctx.raw):fmt(ctx.raw)}}},
+      scales:{
+        x:{grid:{display:false},ticks:{maxTicksLimit:8,color:'#888'}},
+        y:{ticks:{callback:v=>fmt(v),color:'#888'},grid:{color:'rgba(128,128,128,0.1)'}}
+      }
+    }
+  });
+}
+
+function onRSU() {
+  const grant=parseInt(document.getElementById('sl-rsu-grant').value);
+  const sched=document.getElementById('sl-rsu-sched').value;
+  const startMonths=parseInt(document.getElementById('sl-rsu-start').value);
+  document.getElementById('out-rsu-grant').textContent=fmt(grant);
+  document.getElementById('out-rsu-start').textContent=startMonths+' mo';
+
+  const schedules={
+    '4yr1cliff':[{yr:1,pct:25,label:'Cliff'},{yr:2,pct:25},{yr:3,pct:25},{yr:4,pct:25}],
+    '4yr':[{yr:1,pct:25},{yr:2,pct:25},{yr:3,pct:25},{yr:4,pct:25}],
+    '3yr':[{yr:1,pct:33.3},{yr:2,pct:33.3},{yr:3,pct:33.4}],
+    'backloaded':[{yr:1,pct:5},{yr:2,pct:15},{yr:3,pct:40},{yr:4,pct:40}]
+  };
+  const rows=schedules[sched];
+  const isCliff=sched==='4yr1cliff';
+
+  let vested=0, unvested=0;
+  const tableRows=rows.map(r=>{
+    const amt=Math.round(grant*(r.pct/100));
+    const monthsToVest=r.yr*12;
+    const alreadyVested=startMonths>=monthsToVest;
+    const monthsLeft=Math.max(0,monthsToVest-startMonths);
+    if(alreadyVested) vested+=amt; else unvested+=amt;
+    const badge=isCliff&&r.yr===1?`<span class="cliff-badge">cliff</span>`:'';
+    const status=alreadyVested
+      ? `<span style="color:var(--color-text-success);font-size:12px;">✓ Vested</span>`
+      : `<span style="color:var(--color-text-secondary);font-size:12px;">${monthsLeft} mo away${badge}</span>`;
+    const barW=Math.round(r.pct);
+    return `<tr>
+      <td>Year ${r.yr}</td>
+      <td>${Math.round(r.pct)}%</td>
+      <td>${fmtFull(amt)}</td>
+      <td>${status}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('rsu-table-wrap').innerHTML=`
+    <table class="vest-table">
+      <thead><tr><th>Year</th><th>% vests</th><th>Value (current price)</th><th>Status</th></tr></thead>
+      <tbody>${tableRows}</tbody>
+    </table>
+  `;
+
+  document.getElementById('rsu-metrics').innerHTML=`
+    <div class="metric"><div class="metric-label">Total grant</div><div class="metric-value">${fmt(grant)}</div><div class="metric-sub">at current stock price</div></div>
+    <div class="metric"><div class="metric-label">Already vested</div><div class="metric-value" style="color:var(--color-text-success)">${fmt(vested)}</div><div class="metric-sub">in your hands</div></div>
+    <div class="metric"><div class="metric-label">Still unvested</div><div class="metric-value">${fmt(unvested)}</div><div class="metric-sub">subject to stock price</div></div>
+    <div class="metric"><div class="metric-label">Future value</div><div class="metric-value" style="color:var(--color-text-tertiary);">Unknown</div><div class="metric-sub">not modeled — see disclaimer</div></div>
+  `;
+}
+
+function onBudget() {
+  const rent=parseInt(document.getElementById('sl-rent').value);
+  const food=parseInt(document.getElementById('sl-food').value);
+  const transport=parseInt(document.getElementById('sl-transport').value);
+  const ent=parseInt(document.getElementById('sl-ent').value);
+  const other=parseInt(document.getElementById('sl-other').value);
+  ['rent','food','transport','ent','other'].forEach(k=>{
+    document.getElementById('out-'+k).textContent='$'+parseInt(document.getElementById('sl-'+k).value).toLocaleString();
+  });
+  const total=rent+food+transport+ent+other;
+  const base=parseInt(document.getElementById('sl-base').value);
+  const bonus=parseInt(document.getElementById('sl-bonus').value);
+  const totalCash=base*(1+bonus/100);
+  const monthlyNet=Math.round(totalCash*0.68/12);
+  const saved=monthlyNet-total;
+  document.getElementById('budget-metrics').innerHTML=`
+    <div class="metric"><div class="metric-label">Monthly take-home</div><div class="metric-value">$${monthlyNet.toLocaleString()}</div><div class="metric-sub">~32% tax est.</div></div>
+    <div class="metric"><div class="metric-label">Monthly spend</div><div class="metric-value">$${total.toLocaleString()}</div><div class="metric-sub">${Math.round(total/monthlyNet*100)}% of income</div></div>
+    <div class="metric"><div class="metric-label">Monthly surplus</div><div class="metric-value" style="color:${saved>0?'var(--color-text-success)':'var(--color-text-danger)'}">$${saved.toLocaleString()}</div><div class="metric-sub">${Math.round(saved/monthlyNet*100)}% saved</div></div>
+  `;
+  const cats=[{name:'Rent',val:rent,color:'#378ADD'},{name:'Food',val:food,color:'#1D9E75'},{name:'Transport',val:transport,color:'#BA7517'},{name:'Entertainment',val:ent,color:'#7F77DD'},{name:'Other',val:other,color:'#888780'}];
+  document.getElementById('budget-bars').innerHTML=cats.map(c=>`
+    <div class="budget-row">
+      <span class="budget-cat">${c.name}</span>
+      <div class="budget-bar-bg"><div class="budget-bar-fill" style="width:${Math.round(c.val/total*100)}%;background:${c.color}"></div></div>
+      <span class="budget-amt">$${c.val.toLocaleString()}</span>
+    </div>`).join('');
+}
+
+function renderNetWorth() {
+  const assets=[{name:'Checking / savings',val:18000,color:'#1D9E75'},{name:'401(k)',val:12000,color:'#378ADD'},{name:'Brokerage',val:8500,color:'#7F77DD'},{name:'Other',val:2000,color:'#888780'}];
+  const liabilities=[{name:'Student loans',val:24000,color:'#D85A30'},{name:'Credit card',val:1200,color:'#E24B4A'}];
+  const tA=assets.reduce((s,a)=>s+a.val,0), tL=liabilities.reduce((s,a)=>s+a.val,0);
+  document.getElementById('nw-metrics').innerHTML=`
+    <div class="metric"><div class="metric-label">Net worth</div><div class="metric-value">${fmt(tA-tL)}</div></div>
+    <div class="metric"><div class="metric-label">Total assets</div><div class="metric-value">${fmt(tA)}</div></div>
+    <div class="metric"><div class="metric-label">Total liabilities</div><div class="metric-value">${fmt(tL)}</div></div>
+    <div class="metric"><div class="metric-label">Velocity</div><div class="metric-value" style="color:var(--color-text-success)">+$2.1k</div><div class="metric-sub">vs last month</div></div>
+  `;
+  document.getElementById('nw-assets').innerHTML=assets.map(a=>`<div class="nw-row"><span class="nw-label">${a.name}</span><div class="nw-bar-bg"><div class="nw-bar-fill" style="width:${Math.round(a.val/tA*100)}%;background:${a.color}"></div></div><span class="nw-val" style="color:${a.color}">${fmt(a.val)}</span></div>`).join('');
+  document.getElementById('nw-liabilities').innerHTML=liabilities.map(l=>`<div class="nw-row"><span class="nw-label">${l.name}</span><div class="nw-bar-bg"><div class="nw-bar-fill" style="width:${Math.round(l.val/tL*100)}%;background:${l.color}"></div></div><span class="nw-val" style="color:${l.color}">${fmt(l.val)}</span></div>`).join('');
+  if(nwChart) nwChart.destroy();
+  nwChart=new Chart(document.getElementById('nwChart'),{
+    type:'line',
+    data:{labels:['Nov','Dec','Jan','Feb','Mar','Apr'],datasets:[{data:[10200,11800,12400,13100,14500,15300],borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,0.08)',fill:true,tension:0.4,pointRadius:3,borderWidth:2,label:'Net worth'}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:'#888'}},y:{ticks:{callback:v=>fmt(v),color:'#888'},grid:{color:'rgba(128,128,128,0.1)'}}}}
+  });
+}
+
+function switchTab(name,el) {
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  el.classList.add('active');
+  if(name==='networth') renderNetWorth();
+  if(name==='budget') onBudget();
+}
+
+document.getElementById('sl-base').value=150000;
+document.getElementById('sl-bonus').value=10;
+document.getElementById('sl-savings').value=30;
+document.getElementById('sl-years').value=20;
+document.getElementById('sl-side').value=0;
+document.getElementById('sl-shock').value=0;
+document.getElementById('sl-rsu-grant').value=200000;
+document.getElementById('sl-rsu-start').value=0;
+document.getElementById('sl-rent').value=2200;
+document.getElementById('sl-food').value=600;
+document.getElementById('sl-transport').value=200;
+document.getElementById('sl-ent').value=300;
+document.getElementById('sl-other').value=400;
+
+onSlider();
+onRSU();
+onBudget();
+</script>

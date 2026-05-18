@@ -1,0 +1,26 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from database import engine
+import models
+from routers import scenarios, accounts, cards
+
+models.Base.metadata.create_all(bind=engine)
+
+app = FastAPI(title="Finance OS API", version="0.1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(scenarios.router, prefix="/scenarios", tags=["scenarios"])
+app.include_router(accounts.router, prefix="/accounts", tags=["accounts"])
+app.include_router(cards.router, prefix="/cards", tags=["cards"])
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
