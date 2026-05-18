@@ -16,3 +16,6 @@ frontend/dist/
 
 # Data
 data/
+
+# Local-only docs
+SPEC.md
