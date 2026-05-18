@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '../api'
+import SpendingCharts from './SpendingCharts'
 
 const CATS = [
   { key: 'Rent',          label: 'Rent',          color: '#378ADD', def: 2200 },
@@ -51,7 +52,10 @@ export default function Budget({ baseSalary = 150000, bonusPct = 10 }) {
 
   const loadTransactions = useCallback(() => {
     setLoadingTxns(true)
-    api.transactions.list(currentMonth())
+    const d = new Date()
+    d.setMonth(d.getMonth() - 6)
+    d.setDate(1)
+    api.transactions.list({ since: d.toISOString().slice(0, 10) })
       .then(setTransactions)
       .catch(console.error)
       .finally(() => setLoadingTxns(false))
@@ -106,8 +110,10 @@ export default function Budget({ baseSalary = 150000, bonusPct = 10 }) {
     } catch (e) { console.error(e) }
   }
 
-  const actuals = computeActuals(transactions)
-  const hasTransactions = transactions.length > 0
+  const currentMonthTxns = transactions.filter(t => t.date.startsWith(currentMonth()))
+  const actuals = computeActuals(currentMonthTxns)
+  const hasCurrentMonth = currentMonthTxns.length > 0
+  const anyTransactions = transactions.length > 0
   const totalSpent = Object.values(actuals).reduce((s, v) => s + v, 0)
   const totalLimit = Object.values(limits).reduce((s, v) => s + v, 0)
   const totalCash = baseSalary * (1 + bonusPct / 100)
@@ -125,13 +131,13 @@ export default function Budget({ baseSalary = 150000, bonusPct = 10 }) {
         </div>
         <div className="metric">
           <div className="metric-label">
-            {hasTransactions ? `Spent (${currentMonth()})` : 'Budget total'}
+            {hasCurrentMonth ? `Spent (${currentMonth()})` : 'Budget total'}
           </div>
           <div className="metric-value">
-            ${(hasTransactions ? totalSpent : totalLimit).toLocaleString()}
+            ${(hasCurrentMonth ? totalSpent : totalLimit).toLocaleString()}
           </div>
           <div className="metric-sub">
-            {hasTransactions
+            {hasCurrentMonth
               ? `${Math.round(totalSpent / monthlyNet * 100)}% of income`
               : 'across all categories'}
           </div>
@@ -144,10 +150,10 @@ export default function Budget({ baseSalary = 150000, bonusPct = 10 }) {
             {surplus >= 0 ? '+' : ''}${surplus.toLocaleString()}
           </div>
           <div className="metric-sub">
-            {hasTransactions ? 'take-home minus spent' : 'projected'}
+            {hasCurrentMonth ? 'take-home minus spent' : 'projected'}
           </div>
         </div>
-        {hasTransactions && (
+        {hasCurrentMonth && (
           <div className="metric">
             <div className="metric-label">Budget remaining</div>
             <div className="metric-value" style={{
@@ -163,7 +169,7 @@ export default function Budget({ baseSalary = 150000, bonusPct = 10 }) {
       {/* Category breakdown */}
       <div className="card">
         <div className="card-title">
-          {hasTransactions ? `This month — actuals vs. budget` : 'Budget limits'}
+          {hasCurrentMonth ? `This month — actuals vs. budget` : 'Budget limits'}
         </div>
         {CATS.map(c => {
           const actual = actuals[c.key]
@@ -184,7 +190,7 @@ export default function Budget({ baseSalary = 150000, bonusPct = 10 }) {
                   {c.label}
                 </span>
                 <span style={{ fontSize: 13 }}>
-                  {hasTransactions ? (
+                  {hasCurrentMonth ? (
                     <>
                       <span style={{ color: overBudget ? 'var(--color-text-danger)' : 'var(--color-text-primary)', fontWeight: 500 }}>
                         ${Math.round(actual).toLocaleString()}
@@ -202,11 +208,11 @@ export default function Budget({ baseSalary = 150000, bonusPct = 10 }) {
                 <div
                   className="budget-bar-fill"
                   style={{
-                    width: hasTransactions
+                    width: hasCurrentMonth
                       ? `${Math.min(ratio * 100, 100)}%`
                       : `${Math.round(limit / totalLimit * 100)}%`,
-                    background: hasTransactions ? barColor : c.color,
-                    opacity: hasTransactions ? 1 : 0.45,
+                    background: hasCurrentMonth ? barColor : c.color,
+                    opacity: hasCurrentMonth ? 1 : 0.45,
                   }}
                 />
               </div>
@@ -261,15 +267,18 @@ export default function Budget({ baseSalary = 150000, bonusPct = 10 }) {
           </div>
         )}
 
-        {!hasTransactions && !importResult && (
+        {!anyTransactions && !importResult && (
           <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 10 }}>
             Export a CSV from your bank and import it here. Chase, Amex, BoA, and Apple Card are supported.
           </div>
         )}
       </div>
 
+      {/* Spending charts — only when current month has data */}
+      <SpendingCharts transactions={transactions} currentMonth={currentMonth()} />
+
       {/* Recent transactions (toggleable) */}
-      {hasTransactions && (
+      {anyTransactions && (
         <div className="card">
           <div
             style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
@@ -278,7 +287,7 @@ export default function Budget({ baseSalary = 150000, bonusPct = 10 }) {
             <div className="card-title" style={{ marginBottom: 0 }}>
               Recent transactions
               <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginLeft: 8, fontWeight: 400 }}>
-                {transactions.length} this month
+                {currentMonthTxns.length} this month
               </span>
             </div>
             <span style={{ color: 'var(--color-text-tertiary)', fontSize: 12 }}>
@@ -291,7 +300,7 @@ export default function Budget({ baseSalary = 150000, bonusPct = 10 }) {
               {loadingTxns ? (
                 <div style={{ fontSize: 13, color: 'var(--color-text-tertiary)' }}>Loading…</div>
               ) : (
-                transactions.slice(0, 30).map(t => (
+                currentMonthTxns.slice(0, 30).map(t => (
                   <div key={t.id} style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     padding: '8px 0', borderBottom: '0.5px solid var(--color-border-tertiary)',

@@ -21,11 +21,17 @@ class TransactionOut(BaseModel):
 
 
 @router.get("/", response_model=list[TransactionOut])
-def list_transactions(month: Optional[str] = None, db: Session = Depends(get_db)):
+def list_transactions(
+    month: Optional[str] = None,
+    since: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
     q = db.query(models.Transaction)
     if month:
         q = q.filter(models.Transaction.date.startswith(month))
-    return q.order_by(models.Transaction.date.desc()).limit(500).all()
+    elif since:
+        q = q.filter(models.Transaction.date >= since)
+    return q.order_by(models.Transaction.date.desc()).limit(2000).all()
 
 
 @router.post("/import")

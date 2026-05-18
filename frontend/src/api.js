@@ -23,7 +23,12 @@ export const api = {
     remove: (id) => req('DELETE', `/cards/${id}`),
   },
   transactions: {
-    list: (month) => req('GET', `/transactions/${month ? `?month=${month}` : ''}`),
+    list: (params = {}) => {
+      const qs = new URLSearchParams(
+        Object.fromEntries(Object.entries(params).filter(([, v]) => v != null))
+      ).toString()
+      return req('GET', `/transactions/${qs ? '?' + qs : ''}`)
+    },
     remove: (id) => req('DELETE', `/transactions/${id}`),
   },
   budgets: {
