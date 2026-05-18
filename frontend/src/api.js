@@ -20,7 +20,9 @@ export const api = {
   cards: {
     list: () => req('GET', '/cards/'),
     create: (body) => req('POST', '/cards/', body),
+    update: (id, body) => req('PUT', `/cards/${id}`, body),
     remove: (id) => req('DELETE', `/cards/${id}`),
+    optimize: (month) => req('GET', `/cards/optimize${month ? '?month=' + month : ''}`),
   },
   transactions: {
     list: (params = {}) => {
