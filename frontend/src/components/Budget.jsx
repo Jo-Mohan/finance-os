@@ -27,6 +27,11 @@ function currentMonth() {
   return new Date().toISOString().slice(0, 7)
 }
 
+function monthLabel(ym) {
+  const [y, m] = ym.split('-')
+  return new Date(+y, +m - 1, 1).toLocaleString('default', { month: 'long', year: 'numeric' })
+}
+
 function computeActuals(transactions) {
   const totals = Object.fromEntries(CATS.map(c => [c.key, 0]))
   transactions
@@ -44,6 +49,7 @@ export default function Budget({ baseSalary = 150000, bonusPct = 10 }) {
   )
   const [transactions, setTransactions] = useState([])
   const [loadingTxns, setLoadingTxns] = useState(true)
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth())
   const [showTxns, setShowTxns] = useState(false)
   const [showLimits, setShowLimits] = useState(false)
   const [accountType, setAccountType] = useState('credit_card')
@@ -110,9 +116,10 @@ export default function Budget({ baseSalary = 150000, bonusPct = 10 }) {
     } catch (e) { console.error(e) }
   }
 
-  const currentMonthTxns = transactions.filter(t => t.date.startsWith(currentMonth()))
-  const actuals = computeActuals(currentMonthTxns)
-  const hasCurrentMonth = currentMonthTxns.length > 0
+  const availableMonths = [...new Set(transactions.map(t => t.date.slice(0, 7)))].sort().reverse()
+  const selectedMonthTxns = transactions.filter(t => t.date.startsWith(selectedMonth))
+  const actuals = computeActuals(selectedMonthTxns)
+  const hasCurrentMonth = selectedMonthTxns.length > 0
   const anyTransactions = transactions.length > 0
   const totalSpent = Object.values(actuals).reduce((s, v) => s + v, 0)
   const totalLimit = Object.values(limits).reduce((s, v) => s + v, 0)
@@ -131,7 +138,7 @@ export default function Budget({ baseSalary = 150000, bonusPct = 10 }) {
         </div>
         <div className="metric">
           <div className="metric-label">
-            {hasCurrentMonth ? `Spent (${currentMonth()})` : 'Budget total'}
+            {hasCurrentMonth ? `Spent (${selectedMonth})` : 'Budget total'}
           </div>
           <div className="metric-value">
             ${(hasCurrentMonth ? totalSpent : totalLimit).toLocaleString()}
@@ -168,8 +175,21 @@ export default function Budget({ baseSalary = 150000, bonusPct = 10 }) {
 
       {/* Category breakdown */}
       <div className="card">
-        <div className="card-title">
-          {hasCurrentMonth ? `This month — actuals vs. budget` : 'Budget limits'}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div className="card-title" style={{ marginBottom: 0 }}>
+            {hasCurrentMonth ? 'Actuals vs. budget' : 'Budget limits'}
+          </div>
+          {availableMonths.length > 0 && (
+            <select
+              value={selectedMonth}
+              onChange={e => setSelectedMonth(e.target.value)}
+              style={{ fontSize: 12, padding: '4px 6px' }}
+            >
+              {availableMonths.map(m => (
+                <option key={m} value={m}>{monthLabel(m)}</option>
+              ))}
+            </select>
+          )}
         </div>
         {CATS.map(c => {
           const actual = actuals[c.key]
@@ -274,8 +294,8 @@ export default function Budget({ baseSalary = 150000, bonusPct = 10 }) {
         )}
       </div>
 
-      {/* Spending charts — only when current month has data */}
-      <SpendingCharts transactions={transactions} currentMonth={currentMonth()} />
+      {/* Spending charts */}
+      <SpendingCharts transactions={transactions} currentMonth={selectedMonth} />
 
       {/* Recent transactions (toggleable) */}
       {anyTransactions && (
@@ -287,7 +307,7 @@ export default function Budget({ baseSalary = 150000, bonusPct = 10 }) {
             <div className="card-title" style={{ marginBottom: 0 }}>
               Recent transactions
               <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginLeft: 8, fontWeight: 400 }}>
-                {currentMonthTxns.length} this month
+                {selectedMonthTxns.length} in {selectedMonth}
               </span>
             </div>
             <span style={{ color: 'var(--color-text-tertiary)', fontSize: 12 }}>
@@ -300,7 +320,7 @@ export default function Budget({ baseSalary = 150000, bonusPct = 10 }) {
               {loadingTxns ? (
                 <div style={{ fontSize: 13, color: 'var(--color-text-tertiary)' }}>Loading…</div>
               ) : (
-                currentMonthTxns.slice(0, 30).map(t => (
+                selectedMonthTxns.slice(0, 50).map(t => (
                   <div key={t.id} style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     padding: '8px 0', borderBottom: '0.5px solid var(--color-border-tertiary)',
