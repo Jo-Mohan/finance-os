@@ -19,3 +19,6 @@ data/
 
 # Local-only docs
 SPEC.md
+
+# Financial data — never commit
+*.csv

@@ -6,6 +6,7 @@ CATEGORY_RULES = [
     ("Rent", [
         "rent", "apartment", "lease", "real property", "hoa", "management company",
         "storage", "self storage",
+        "bilt",         # Bilt Mastercard rent payments
     ]),
     ("Food", [
         "restaurant", "doordash", "grubhub", "uber eats", "seamless", "chipotle",
@@ -40,7 +41,13 @@ def detect_format(headers: list[str]) -> str | None:
         return "boa"
     if "transaction date" in h and "amount (usd)" in h:
         return "apple"
+    if "date" in h and "amount" in h and "running bal." in h:
+        return "chase_checking"
     return None
+
+
+def parse_amount(s: str) -> float:
+    return float(s.strip().strip('"').replace(",", ""))
 
 
 def parse_date(s: str) -> str:
@@ -66,6 +73,8 @@ CC_PAYMENT_PATTERNS = [
     "online payment - thank you",
     "payment thank you",
     "pymt thank you",
+    "payment to crd",   # Chase checking: "Online Banking payment to CRD 8069"
+    "online banking payment to crd",
 ]
 
 
@@ -116,26 +125,32 @@ def parse_csv(content: str) -> tuple[list[dict], str]:
             if fmt == "chase":
                 date = parse_date(row["Transaction Date"])
                 merchant = row["Description"].strip()
-                raw = float(row["Amount"])
+                raw = parse_amount(row["Amount"])
                 amount = -raw  # Chase negative = debit; flip to positive = expense
 
             elif fmt == "amex":
                 date = parse_date(row["Date"])
                 merchant = row["Description"].strip()
-                raw = float(row["Amount"])
+                raw = parse_amount(row["Amount"])
                 amount = raw  # Amex positive = charge
 
             elif fmt == "boa":
                 date = parse_date(row["Posted Date"])
                 merchant = row["Payee"].strip()
-                raw = float(row["Amount"])
+                raw = parse_amount(row["Amount"])
                 amount = -raw  # BoA negative = debit; flip
 
             elif fmt == "apple":
                 date = parse_date(row["Transaction Date"])
                 merchant = (row.get("Merchant") or row.get("Description", "")).strip()
-                raw = float(row["Amount (USD)"])
+                raw = parse_amount(row["Amount (USD)"])
                 amount = -raw  # Apple negative = charge; flip
+
+            elif fmt == "chase_checking":
+                date = parse_date(row["Date"])
+                merchant = row["Description"].strip()
+                raw = parse_amount(row["Amount"])
+                amount = -raw  # Chase checking: negative = debit; flip to positive = expense
 
             amount = round(amount, 2)
             category = "Income" if amount < 0 else categorize(merchant)
