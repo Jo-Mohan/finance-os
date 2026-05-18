@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
 from database import get_db
 import models
-from csv_import import parse_csv
+from csv_import import parse_csv, filter_checking_payments
 
 router = APIRouter()
 
@@ -29,7 +29,11 @@ def list_transactions(month: Optional[str] = None, db: Session = Depends(get_db)
 
 
 @router.post("/import")
-async def import_csv(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def import_csv(
+    file: UploadFile = File(...),
+    account_type: str = Form("credit_card"),
+    db: Session = Depends(get_db),
+):
     raw = await file.read()
     try:
         content = raw.decode("utf-8-sig")
@@ -40,6 +44,10 @@ async def import_csv(file: UploadFile = File(...), db: Session = Depends(get_db)
         rows, fmt = parse_csv(content)
     except ValueError as e:
         raise HTTPException(400, detail=str(e))
+
+    filtered = 0
+    if account_type == "checking":
+        rows, filtered = filter_checking_payments(rows)
 
     imported = skipped = 0
     for row in rows:
@@ -55,7 +63,7 @@ async def import_csv(file: UploadFile = File(...), db: Session = Depends(get_db)
             imported += 1
 
     db.commit()
-    return {"imported": imported, "skipped": skipped, "format": fmt}
+    return {"imported": imported, "skipped": skipped, "filtered": filtered, "format": fmt}
 
 
 @router.delete("/{id}")

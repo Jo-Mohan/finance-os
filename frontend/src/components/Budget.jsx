@@ -45,6 +45,7 @@ export default function Budget({ baseSalary = 150000, bonusPct = 10 }) {
   const [loadingTxns, setLoadingTxns] = useState(true)
   const [showTxns, setShowTxns] = useState(false)
   const [showLimits, setShowLimits] = useState(false)
+  const [accountType, setAccountType] = useState('credit_card')
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState(null)
 
@@ -84,6 +85,7 @@ export default function Budget({ baseSalary = 150000, bonusPct = 10 }) {
     setImportResult(null)
     const form = new FormData()
     form.append('file', file)
+    form.append('account_type', accountType)
     try {
       const res = await fetch('/api/transactions/import', { method: 'POST', body: form })
       const data = await res.json()
@@ -215,9 +217,18 @@ export default function Budget({ baseSalary = 150000, bonusPct = 10 }) {
 
       {/* Import card */}
       <div className="card">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: importResult ? 10 : 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
           <div className="card-title" style={{ marginBottom: 0 }}>Import transactions</div>
-          <label style={{
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <select
+              value={accountType}
+              onChange={e => setAccountType(e.target.value)}
+              style={{ fontSize: 12, padding: '4px 6px', flex: 'none' }}
+            >
+              <option value="credit_card">Credit card</option>
+              <option value="checking">Checking / savings</option>
+            </select>
+            <label style={{
             background: importing ? 'var(--color-background-secondary)' : 'var(--color-text-success)',
             color: importing ? 'var(--color-text-secondary)' : '#fff',
             border: 'none', borderRadius: 'var(--border-radius-md)',
@@ -233,13 +244,15 @@ export default function Budget({ baseSalary = 150000, bonusPct = 10 }) {
               disabled={importing}
             />
           </label>
+          </div>
         </div>
 
         {importResult && !importResult.error && (
           <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 8 }}>
             ✓ Imported <strong style={{ color: 'var(--color-text-primary)' }}>{importResult.imported}</strong> transactions
             ({importResult.format?.toUpperCase()} format)
-            {importResult.skipped > 0 && `, ${importResult.skipped} duplicates skipped`}.
+            {importResult.skipped > 0 && `, ${importResult.skipped} duplicates skipped`}
+            {importResult.filtered > 0 && `, ${importResult.filtered} payment rows filtered`}.
           </div>
         )}
         {importResult?.error && (

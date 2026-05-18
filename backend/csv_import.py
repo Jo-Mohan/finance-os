@@ -52,6 +52,36 @@ def parse_date(s: str) -> str:
     return s.strip()
 
 
+# Patterns that identify credit card payoff rows in a checking account CSV.
+# Conservative list — only things that are unambiguously CC payments, not
+# utility autopays or vendor payments.
+CC_PAYMENT_PATTERNS = [
+    "autopay",
+    "credit card payment",
+    "credit card pymt",
+    "credit crd",       # Chase: "CHASE CREDIT CRD AUTOPAY"
+    "cc payment",
+    "e-payment",        # Discover autopay
+    "epayment",         # Amex: "AMEX EPAYMENT"
+    "online payment - thank you",
+    "payment thank you",
+    "pymt thank you",
+]
+
+
+def filter_checking_payments(rows: list[dict]) -> tuple[list[dict], int]:
+    """Strip credit card payoff rows from a checking account import.
+    Returns (kept_rows, filtered_count)."""
+    kept, filtered = [], 0
+    for row in rows:
+        desc = row["merchant"].lower()
+        if any(p in desc for p in CC_PAYMENT_PATTERNS):
+            filtered += 1
+        else:
+            kept.append(row)
+    return kept, filtered
+
+
 def categorize(description: str) -> str:
     d = description.lower()
     for cat, keywords in CATEGORY_RULES:
