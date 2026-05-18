@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { api } from '../api'
 
 const OPTIMIZER = [
   { cat: 'Restaurants', icon: '🍽', card: 'Amex Gold', pts: '4x pts', pct: '~8% back' },
@@ -8,60 +9,69 @@ const OPTIMIZER = [
   { cat: 'Everything else', icon: '···', card: 'Freedom Unlimited', pts: '1.5x pts', pct: '~2.25% back' },
 ]
 
-const SEED_CARDS = [
-  {
-    id: 1, name: 'Chase Sapphire Reserve',
-    detail: '3x travel & dining\n$300 travel credit\n$550 annual fee',
-    badge: 'Travel', badgeClass: 'badge-blue',
-    bonus: null,
-  },
-  {
-    id: 2, name: 'Amex Gold',
-    detail: '4x dining & groceries\n$120 dining credit\n$250 annual fee',
-    badge: 'Dining', badgeClass: 'badge-amber',
-    bonus: { spent: 2400, total: 4000, daysLeft: 60 },
-  },
-  {
-    id: 3, name: 'Chase Freedom Unlimited',
-    detail: '1.5x everything\nNo annual fee',
-    badge: 'Catchall', badgeClass: 'badge-green',
-    bonus: null,
-  },
-]
+const BADGE_CLASS = {
+  Travel: 'badge-blue',
+  Dining: 'badge-amber',
+  Catchall: 'badge-green',
+}
 
 export default function Cards() {
-  const [cards, setCards] = useState(SEED_CARDS)
+  const [cards, setCards] = useState([])
+  const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
   const [newName, setNewName] = useState('')
   const [newDetail, setNewDetail] = useState('')
   const [newBadge, setNewBadge] = useState('Travel')
 
-  function addCard() {
+  useEffect(() => {
+    api.cards.list()
+      .then(setCards)
+      .catch(console.error)
+      .finally(() => setLoading(false))
+  }, [])
+
+  async function addCard() {
     if (!newName.trim()) return
-    setCards(prev => [
-      ...prev,
-      {
-        id: Date.now(),
+    try {
+      const created = await api.cards.create({
         name: newName.trim(),
-        detail: newDetail.trim(),
-        badge: newBadge,
-        badgeClass: newBadge === 'Travel' ? 'badge-blue' : newBadge === 'Dining' ? 'badge-amber' : 'badge-green',
-        bonus: null,
-      },
-    ])
-    setNewName('')
-    setNewDetail('')
-    setShowAdd(false)
+        annual_fee: 0,
+        rewards: { description: newDetail.trim() },
+        category_badge: newBadge,
+      })
+      setCards(prev => [...prev, created])
+      setNewName('')
+      setNewDetail('')
+      setShowAdd(false)
+    } catch (e) { console.error(e) }
   }
 
-  function removeCard(id) {
-    setCards(prev => prev.filter(c => c.id !== id))
+  async function removeCard(id) {
+    try {
+      await api.cards.remove(id)
+      setCards(prev => prev.filter(c => c.id !== id))
+    } catch (e) { console.error(e) }
   }
+
+  const bonusCards = cards.filter(c => c.signup_bonus_amount)
+
+  if (loading) return (
+    <div style={{ color: 'var(--color-text-tertiary)', fontSize: 13, padding: '2rem 0' }}>
+      Loading…
+    </div>
+  )
 
   return (
     <div>
       <div className="card">
         <div className="card-title">Your cards</div>
+
+        {cards.length === 0 && !showAdd && (
+          <div style={{ fontSize: 13, color: 'var(--color-text-tertiary)', marginBottom: 12 }}>
+            No cards yet — add one below to get spend recommendations.
+          </div>
+        )}
+
         <div className="cc-grid">
           {cards.map(c => (
             <div className="cc-card" key={c.id} style={{ position: 'relative' }}>
@@ -74,16 +84,19 @@ export default function Cards() {
                 ×
               </button>
               <div className="cc-name">{c.name}</div>
-              <div className="cc-detail" style={{ whiteSpace: 'pre-line' }}>{c.detail}</div>
-              {c.badge && <span className={`badge ${c.badgeClass}`}>{c.badge}</span>}
+              <div className="cc-detail" style={{ whiteSpace: 'pre-line' }}>
+                {c.rewards?.description || ''}
+              </div>
+              {c.category_badge && (
+                <span className={`badge ${BADGE_CLASS[c.category_badge] || 'badge-green'}`}>
+                  {c.category_badge}
+                </span>
+              )}
             </div>
           ))}
+
           {!showAdd && (
-            <div
-              className="cc-card"
-              style={{ cursor: 'pointer' }}
-              onClick={() => setShowAdd(true)}
-            >
+            <div className="cc-card" style={{ cursor: 'pointer' }} onClick={() => setShowAdd(true)}>
               <div className="cc-name" style={{ color: 'var(--color-text-tertiary)' }}>+ Add card</div>
               <div className="cc-detail" style={{ marginTop: 8 }}>
                 Connect a new card to get spend recommendations
@@ -107,6 +120,8 @@ export default function Cards() {
                 placeholder="e.g. Citi Double Cash"
                 value={newName}
                 onChange={e => setNewName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addCard()}
+                autoFocus
               />
             </div>
             <div className="slider-row">
@@ -138,8 +153,7 @@ export default function Cards() {
                 style={{
                   background: 'var(--color-text-success)', color: '#fff',
                   border: 'none', borderRadius: 'var(--border-radius-md)',
-                  padding: '6px 14px', fontSize: 12, cursor: 'pointer',
-                  fontFamily: 'inherit',
+                  padding: '6px 14px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
                 }}
               >
                 Save
@@ -150,8 +164,7 @@ export default function Cards() {
                   background: 'none', color: 'var(--color-text-secondary)',
                   border: '0.5px solid var(--color-border-primary)',
                   borderRadius: 'var(--border-radius-md)',
-                  padding: '6px 14px', fontSize: 12, cursor: 'pointer',
-                  fontFamily: 'inherit',
+                  padding: '6px 14px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
                 }}
               >
                 Cancel
@@ -172,25 +185,27 @@ export default function Cards() {
         ))}
       </div>
 
-      <div className="card">
-        <div className="card-title">Sign-up bonus tracker</div>
-        {cards.filter(c => c.bonus).map(c => (
-          <div className="rec-row" key={c.id}>
-            <span style={{ color: 'var(--color-text-secondary)' }}>{c.name}</span>
-            <span style={{ fontSize: 12, color: 'var(--color-text-warning)' }}>
-              ${c.bonus.spent.toLocaleString()} / ${c.bonus.total.toLocaleString()} — {c.bonus.daysLeft} days left
-            </span>
-          </div>
-        ))}
-        {cards.filter(c => c.bonus === null).some((_, i) => i === 0) && (
-          cards.filter(c => c.bonus === null).filter((_, i) => i === 0).map(c => (
-            <div className="rec-row" key={'earned-' + c.id}>
-              <span style={{ color: 'var(--color-text-secondary)' }}>{c.name}</span>
-              <span style={{ fontSize: 12, color: 'var(--color-text-success)' }}>Earned ✓</span>
-            </div>
-          ))
-        )}
-      </div>
+      {bonusCards.length > 0 && (
+        <div className="card">
+          <div className="card-title">Sign-up bonus tracker</div>
+          {bonusCards.map(c => {
+            const earned = (c.signup_bonus_spent ?? 0) >= c.signup_bonus_amount
+            return (
+              <div className="rec-row" key={c.id}>
+                <span style={{ color: 'var(--color-text-secondary)' }}>{c.name}</span>
+                {earned ? (
+                  <span style={{ fontSize: 12, color: 'var(--color-text-success)' }}>Earned ✓</span>
+                ) : (
+                  <span style={{ fontSize: 12, color: 'var(--color-text-warning)' }}>
+                    ${(c.signup_bonus_spent ?? 0).toLocaleString()} / ${c.signup_bonus_amount.toLocaleString()}
+                    {c.signup_bonus_deadline ? ` — ${c.signup_bonus_deadline}` : ''}
+                  </span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

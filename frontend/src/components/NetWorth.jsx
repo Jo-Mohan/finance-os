@@ -1,11 +1,23 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Chart as ChartJS,
   CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip
 } from 'chart.js'
 import { Line } from 'react-chartjs-2'
+import { api } from '../api'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip)
+
+const ASSET_COLORS = ['#1D9E75', '#378ADD', '#7F77DD', '#888780', '#BA7517', '#5094D4']
+const LIAB_COLORS = ['#D85A30', '#E24B4A', '#c06040', '#9a4030']
+
+const NW_HISTORY = [10200, 11800, 12400, 13100, 14500, 15300]
+const NW_LABELS = ['Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr']
+
+function color(id, type) {
+  const p = type === 'asset' ? ASSET_COLORS : LIAB_COLORS
+  return p[id % p.length]
+}
 
 function fmt(n) {
   if (Math.abs(n) >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M'
@@ -13,58 +25,73 @@ function fmt(n) {
   return '$' + Math.round(n)
 }
 
-const SEED_ASSETS = [
-  { id: 1, name: 'Checking / savings', balance: 18000, color: '#1D9E75' },
-  { id: 2, name: '401(k)', balance: 12000, color: '#378ADD' },
-  { id: 3, name: 'Brokerage', balance: 8500, color: '#7F77DD' },
-  { id: 4, name: 'Other', balance: 2000, color: '#888780' },
-]
-
-const SEED_LIABILITIES = [
-  { id: 5, name: 'Student loans', balance: 24000, color: '#D85A30' },
-  { id: 6, name: 'Credit card', balance: 1200, color: '#E24B4A' },
-]
-
-const NW_HISTORY = [10200, 11800, 12400, 13100, 14500, 15300]
-const NW_LABELS = ['Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr']
-
 function AccountRow({ item, onUpdate, onDelete, maxVal }) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(item.balance)
+  const [editingField, setEditingField] = useState(null)
+  const [draft, setDraft] = useState('')
+  const c = color(item.id, item.type)
+
+  function startEdit(field) {
+    setDraft(field === 'name' ? item.name : String(item.balance))
+    setEditingField(field)
+  }
 
   function commit() {
-    const val = parseFloat(draft)
-    if (!isNaN(val) && val >= 0) onUpdate(item.id, val)
-    setEditing(false)
+    if (editingField === 'name') {
+      const name = draft.trim() || item.name
+      if (name !== item.name) onUpdate(item.id, { name })
+    } else if (editingField === 'balance') {
+      const balance = parseFloat(draft)
+      if (!isNaN(balance) && balance >= 0) onUpdate(item.id, { balance })
+    }
+    setEditingField(null)
   }
 
   return (
     <div className="nw-row">
-      <span className="nw-label">{item.name}</span>
+      {editingField === 'name' ? (
+        <input
+          className="nw-input"
+          style={{ minWidth: 130, textAlign: 'left' }}
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={e => e.key === 'Enter' && commit()}
+          autoFocus
+        />
+      ) : (
+        <span
+          className="nw-label"
+          style={{ cursor: 'pointer' }}
+          onClick={() => startEdit('name')}
+          title="Click to rename"
+        >
+          {item.name}
+        </span>
+      )}
       <div className="nw-bar-bg">
         <div
           className="nw-bar-fill"
           style={{
             width: maxVal > 0 ? `${Math.round(item.balance / maxVal * 100)}%` : '0%',
-            background: item.color,
+            background: c,
           }}
         />
       </div>
-      {editing ? (
+      {editingField === 'balance' ? (
         <input
           className="nw-input"
           type="number"
           value={draft}
           onChange={e => setDraft(e.target.value)}
           onBlur={commit}
-          onKeyDown={e => { if (e.key === 'Enter') commit() }}
+          onKeyDown={e => e.key === 'Enter' && commit()}
           autoFocus
         />
       ) : (
         <span
           className="nw-val"
-          style={{ color: item.color, cursor: 'pointer' }}
-          onClick={() => { setDraft(item.balance); setEditing(true) }}
+          style={{ color: c, cursor: 'pointer' }}
+          onClick={() => startEdit('balance')}
           title="Click to edit"
         >
           {fmt(item.balance)}
@@ -76,37 +103,56 @@ function AccountRow({ item, onUpdate, onDelete, maxVal }) {
 }
 
 export default function NetWorth() {
-  const [assets, setAssets] = useState(SEED_ASSETS)
-  const [liabilities, setLiabilities] = useState(SEED_LIABILITIES)
+  const [accounts, setAccounts] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const ASSET_COLORS = ['#1D9E75', '#378ADD', '#7F77DD', '#888780', '#BA7517', '#5094D4']
-  const LIAB_COLORS = ['#D85A30', '#E24B4A', '#c06040', '#9a4030']
+  useEffect(() => {
+    api.accounts.list()
+      .then(setAccounts)
+      .catch(console.error)
+      .finally(() => setLoading(false))
+  }, [])
 
-  function updateBalance(list, setList, id, val) {
-    setList(list.map(x => x.id === id ? { ...x, balance: val } : x))
+  async function addAccount(type) {
+    try {
+      const created = await api.accounts.create({
+        name: type === 'asset' ? 'New asset' : 'New liability',
+        type,
+        balance: 0,
+      })
+      setAccounts(prev => [...prev, created])
+    } catch (e) { console.error(e) }
   }
 
-  function deleteItem(list, setList, id) {
-    setList(list.filter(x => x.id !== id))
+  async function updateAccount(id, patch) {
+    const item = accounts.find(a => a.id === id)
+    if (!item) return
+    try {
+      const updated = await api.accounts.update(id, {
+        name: item.name,
+        type: item.type,
+        institution: item.institution ?? null,
+        balance: item.balance,
+        ...patch,
+      })
+      setAccounts(prev => prev.map(a => a.id === id ? { ...a, ...updated } : a))
+    } catch (e) { console.error(e) }
   }
 
-  function addAsset() {
-    const color = ASSET_COLORS[assets.length % ASSET_COLORS.length]
-    setAssets(prev => [...prev, { id: Date.now(), name: 'New asset', balance: 0, color }])
+  async function deleteAccount(id) {
+    try {
+      await api.accounts.remove(id)
+      setAccounts(prev => prev.filter(a => a.id !== id))
+    } catch (e) { console.error(e) }
   }
 
-  function addLiability() {
-    const color = LIAB_COLORS[liabilities.length % LIAB_COLORS.length]
-    setLiabilities(prev => [...prev, { id: Date.now(), name: 'New liability', balance: 0, color }])
-  }
-
+  const assets = accounts.filter(a => a.type === 'asset')
+  const liabilities = accounts.filter(a => a.type === 'liability')
   const totalAssets = assets.reduce((s, a) => s + a.balance, 0)
   const totalLiab = liabilities.reduce((s, l) => s + l.balance, 0)
   const netWorth = totalAssets - totalLiab
 
-  const prev = NW_HISTORY[NW_HISTORY.length - 2]
-  const curr = NW_HISTORY[NW_HISTORY.length - 1]
-  const velocity = curr - prev
+  const velocity = NW_HISTORY[NW_HISTORY.length - 1] - NW_HISTORY[NW_HISTORY.length - 2]
 
   const chartData = {
     labels: NW_LABELS,
@@ -128,9 +174,7 @@ export default function NetWorth() {
     animation: false,
     plugins: {
       legend: { display: false },
-      tooltip: {
-        callbacks: { label: ctx => fmt(ctx.raw) },
-      },
+      tooltip: { callbacks: { label: ctx => fmt(ctx.raw) } },
     },
     scales: {
       x: { grid: { display: false }, ticks: { color: '#666' } },
@@ -141,6 +185,12 @@ export default function NetWorth() {
     },
   }
 
+  if (loading) return (
+    <div style={{ color: 'var(--color-text-tertiary)', fontSize: 13, padding: '2rem 0' }}>
+      Loading…
+    </div>
+  )
+
   return (
     <div>
       <div className="metric-grid">
@@ -149,7 +199,7 @@ export default function NetWorth() {
           <div className="metric-value" style={{
             color: netWorth >= 0 ? 'var(--color-text-primary)' : 'var(--color-text-danger)'
           }}>
-            {fmt(netWorth)}
+            {accounts.length === 0 ? '—' : fmt(netWorth)}
           </div>
         </div>
         <div className="metric">
@@ -173,30 +223,30 @@ export default function NetWorth() {
 
       <div className="card">
         <div className="card-title">Assets</div>
+        {assets.length === 0 && (
+          <div style={{ fontSize: 13, color: 'var(--color-text-tertiary)', marginBottom: 8 }}>
+            No assets yet — add one below.
+          </div>
+        )}
         {assets.map(a => (
-          <AccountRow
-            key={a.id}
-            item={a}
-            onUpdate={(id, val) => updateBalance(assets, setAssets, id, val)}
-            onDelete={(id) => deleteItem(assets, setAssets, id)}
-            maxVal={totalAssets}
-          />
+          <AccountRow key={a.id} item={a}
+            onUpdate={updateAccount} onDelete={deleteAccount} maxVal={totalAssets} />
         ))}
-        <button className="btn-add" onClick={addAsset}>+ Add asset</button>
+        <button className="btn-add" onClick={() => addAccount('asset')}>+ Add asset</button>
       </div>
 
       <div className="card">
         <div className="card-title">Liabilities</div>
+        {liabilities.length === 0 && (
+          <div style={{ fontSize: 13, color: 'var(--color-text-tertiary)', marginBottom: 8 }}>
+            No liabilities yet — add one below.
+          </div>
+        )}
         {liabilities.map(l => (
-          <AccountRow
-            key={l.id}
-            item={l}
-            onUpdate={(id, val) => updateBalance(liabilities, setLiabilities, id, val)}
-            onDelete={(id) => deleteItem(liabilities, setLiabilities, id)}
-            maxVal={totalLiab}
-          />
+          <AccountRow key={l.id} item={l}
+            onUpdate={updateAccount} onDelete={deleteAccount} maxVal={totalLiab} />
         ))}
-        <button className="btn-add" onClick={addLiability}>+ Add liability</button>
+        <button className="btn-add" onClick={() => addAccount('liability')}>+ Add liability</button>
       </div>
 
       <div className="card">
