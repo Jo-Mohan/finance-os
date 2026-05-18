@@ -22,4 +22,12 @@ export const api = {
     create: (body) => req('POST', '/cards/', body),
     remove: (id) => req('DELETE', `/cards/${id}`),
   },
+  transactions: {
+    list: (month) => req('GET', `/transactions/${month ? `?month=${month}` : ''}`),
+    remove: (id) => req('DELETE', `/transactions/${id}`),
+  },
+  budgets: {
+    list: () => req('GET', '/budgets/'),
+    upsert: (body) => req('PUT', '/budgets/', body),
+  },
 }

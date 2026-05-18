@@ -50,3 +50,15 @@ class Budget(Base):
     id = Column(Integer, primary_key=True, index=True)
     category = Column(String, unique=True)
     monthly_limit = Column(Float, default=0)
+
+
+class Transaction(Base):
+    __tablename__ = "transactions"
+    id = Column(Integer, primary_key=True, index=True)
+    account_id = Column(Integer, ForeignKey("accounts.id"), nullable=True)
+    date = Column(String, index=True)   # YYYY-MM-DD
+    amount = Column(Float)              # positive = expense, negative = income/credit
+    merchant = Column(String)
+    category = Column(String, default="Other")
+    card_used = Column(String, nullable=True)
+    note = Column(String, nullable=True)
