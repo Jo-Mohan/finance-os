@@ -6,7 +6,13 @@ from routers import scenarios, accounts, cards, transactions, budgets
 
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Finance OS API", version="0.2.0")
+app = FastAPI(title="Finance OS API", version="0.3.0")
+
+
+@app.on_event("startup")
+async def on_startup():
+    from seed import seed_if_empty
+    seed_if_empty()
 
 app.add_middleware(
     CORSMiddleware,
