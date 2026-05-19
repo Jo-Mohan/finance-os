@@ -1,6 +1,5 @@
 """Tests for categorizer — normalization, keyword rules, DB lookup, LLM isolation."""
 import pytest
-from unittest.mock import patch, MagicMock
 from categorizer import normalize, keyword_categorize, apply_to_rows, save_rule, db_lookup
 import models
 
@@ -132,35 +131,7 @@ class TestApplyToRows:
         result = apply_to_rows(rows, db)
         assert result[0]["category"] == "Income"
 
-    def test_llm_called_only_for_other(self, db):
-        rows = self._make_rows([
-            ("DOORDASH", "Food"),       # keyword hit — stays Food
-            ("UNKNOWN VENDOR XYZ", "Other"),  # no keyword hit — LLM candidate
-        ])
-        mock_result = {"UNKNOWN VENDOR XYZ": "Entertainment"}
-        with patch("categorizer.llm_categorize_batch", return_value=mock_result) as mock_llm:
-            result = apply_to_rows(rows, db)
-        # LLM called once with only the "Other" merchant
-        mock_llm.assert_called_once()
-        args = mock_llm.call_args[0][0]
-        assert "DOORDASH" not in args
-        assert "UNKNOWN VENDOR XYZ" in args
-        assert result[1]["category"] == "Entertainment"
-
-    def test_llm_result_cached_in_db(self, db):
-        rows = self._make_rows([("TST* MYSTERY CAFE AUSTIN TX", "Other")])
-        with patch("categorizer.llm_categorize_batch", return_value={"TST* MYSTERY CAFE AUSTIN TX": "Food"}):
-            apply_to_rows(rows, db)
-        # Second run — LLM should NOT be called again
-        rows2 = self._make_rows([("TST* MYSTERY CAFE AUSTIN TX", "Other")])
-        with patch("categorizer.llm_categorize_batch", return_value={}) as mock_llm:
-            result = apply_to_rows(rows2, db)
-        mock_llm.assert_not_called()
-        assert result[0]["category"] == "Food"
-
-    def test_no_api_key_graceful(self, db, monkeypatch):
-        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-        rows = self._make_rows([("COMPLETELY UNKNOWN MERCHANT", "Other")])
+    def test_unknown_merchant_stays_other(self, db):
+        rows = self._make_rows([("COMPLETELY UNKNOWN MERCHANT XYZ", "Other")])
         result = apply_to_rows(rows, db)
-        # Falls back to "Other" — no crash
         assert result[0]["category"] == "Other"

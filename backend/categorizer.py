@@ -1,12 +1,9 @@
 """
-Three-layer categorization pipeline:
-  1. DB merchant_rules table (user corrections + cached LLM results)
-  2. Keyword rules (fast, offline)
-  3. Claude Haiku batch call (if ANTHROPIC_API_KEY set) — results cached in DB
+Two-layer categorization pipeline:
+  1. DB merchant_rules table (user corrections, persisted across imports)
+  2. Keyword rules (fast, offline, no dependencies)
 """
-import os
 import re
-import json
 from sqlalchemy.orm import Session
 import models
 
@@ -40,8 +37,6 @@ KEYWORD_RULES = [
         "skydive", "bowling", "arcade",
     ]),
 ]
-
-VALID_CATS = {"Rent", "Food", "Transport", "Entertainment", "Other", "Income"}
 
 
 _STATES = {
@@ -99,63 +94,12 @@ def save_rule(merchant: str, category: str, source: str, db: Session):
         db.add(models.MerchantRule(pattern=key, category=category, source=source))
 
 
-def llm_categorize_batch(merchants: list[str]) -> dict[str, str]:
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key or not merchants:
-        return {}
-    try:
-        import anthropic
-        client = anthropic.Anthropic(api_key=api_key)
-        merchant_list = "\n".join(f"- {m}" for m in merchants)
-        msg = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=1024,
-            messages=[{
-                "role": "user",
-                "content": (
-                    "Categorize each bank transaction merchant into exactly one of: "
-                    "Rent, Food, Transport, Entertainment, Other.\n\n"
-                    f"Merchants:\n{merchant_list}\n\n"
-                    'Reply with only a JSON object: {"merchant name": "Category", ...}\n'
-                    "Use the exact merchant name strings as keys."
-                ),
-            }],
-        )
-        text = msg.content[0].text
-        start = text.index('{')
-        end = text.rindex('}') + 1
-        result = json.loads(text[start:end])
-        return {k: v for k, v in result.items() if v in VALID_CATS}
-    except Exception:
-        return {}
-
-
 def apply_to_rows(rows: list[dict], db: Session) -> list[dict]:
-    """
-    Re-categorize rows using DB rules then LLM.
-    Income rows are never re-categorized.
-    """
-    # Pass 1: DB rules override keyword categorization
+    """Apply DB merchant rules on top of keyword categorization. Income rows are skipped."""
     for row in rows:
         if row["category"] == "Income":
             continue
         cat = db_lookup(row["merchant"], db)
         if cat:
             row["category"] = cat
-
-    # Pass 2: collect still-uncategorized (Other) merchants for LLM
-    other_merchants = list({
-        row["merchant"]
-        for row in rows
-        if row["category"] == "Other"
-    })
-
-    if other_merchants:
-        llm_results = llm_categorize_batch(other_merchants)
-        for merchant, cat in llm_results.items():
-            save_rule(merchant, cat, "llm", db)
-        for row in rows:
-            if row["category"] == "Other" and row["merchant"] in llm_results:
-                row["category"] = llm_results[row["merchant"]]
-
     return rows
