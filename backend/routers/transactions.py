@@ -5,6 +5,7 @@ from typing import Optional
 from database import get_db
 import models
 from csv_import import parse_csv, filter_checking_payments
+from categorizer import apply_to_rows, save_rule
 
 router = APIRouter()
 
@@ -55,6 +56,8 @@ async def import_csv(
     if account_type == "checking":
         rows, filtered = filter_checking_payments(rows)
 
+    rows = apply_to_rows(rows, db)
+
     imported = skipped = 0
     for row in rows:
         exists = db.query(models.Transaction).filter(
@@ -70,6 +73,21 @@ async def import_csv(
 
     db.commit()
     return {"imported": imported, "skipped": skipped, "filtered": filtered, "format": fmt}
+
+
+class RecategorizeIn(BaseModel):
+    category: str
+
+
+@router.patch("/{id}/category")
+def recategorize(id: int, body: RecategorizeIn, db: Session = Depends(get_db)):
+    t = db.get(models.Transaction, id)
+    if not t:
+        raise HTTPException(404)
+    t.category = body.category
+    save_rule(t.merchant, body.category, "user", db)
+    db.commit()
+    return {"ok": True, "category": body.category}
 
 
 @router.delete("/{id}")

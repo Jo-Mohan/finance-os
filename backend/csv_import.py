@@ -1,34 +1,7 @@
 import csv
 import io
 from datetime import datetime
-
-CATEGORY_RULES = [
-    ("Rent", [
-        "rent", "apartment", "lease", "real property", "hoa", "management company",
-        "storage", "self storage",
-        "bilt",         # Bilt Mastercard rent payments
-    ]),
-    ("Food", [
-        "restaurant", "doordash", "grubhub", "uber eats", "seamless", "chipotle",
-        "mcdonald", "starbucks", "trader joe", "whole foods", "kroger", "safeway",
-        "grocery", "groceries", "dining", "cafe", "coffee", "pizza", "sushi", "burger",
-        "taco", "panda express", "instacart", "fresh market", "deli", "bagel",
-        "sandwich", "thai", "chinese food", "indian food", "takeout", "takeaway",
-        "wendy", "chick-fil", "panera", "dunkin", "wingstop", "sweetgreen",
-    ]),
-    ("Transport", [
-        "uber", "lyft", "transit", "metro", "mta ", "citi bike", "zipcar",
-        "parking", "shell", "chevron", "exxon", "mobil", "bp ", "sunoco",
-        "amtrak", "delta air", "united air", "american air", "southwest air",
-        "jetblue", "toll ", "e-zpass", "ezpass", "fastrak", "sunpass",
-    ]),
-    ("Entertainment", [
-        "netflix", "spotify", "hulu", "hbo", "apple music", "amazon prime",
-        "ticketmaster", "amc ", "cinema", "theater", "theatre", "steam ",
-        "playstation", "xbox", "disney+", "youtube premium", "prime video",
-        "apple tv", "paramount+", "peacock",
-    ]),
-]
+from categorizer import keyword_categorize
 
 
 def detect_format(headers: list[str]) -> str | None:
@@ -91,13 +64,6 @@ def filter_checking_payments(rows: list[dict]) -> tuple[list[dict], int]:
     return kept, filtered
 
 
-def categorize(description: str) -> str:
-    d = description.lower()
-    for cat, keywords in CATEGORY_RULES:
-        if any(kw in d for kw in keywords):
-            return cat
-    return "Other"
-
 
 def parse_csv(content: str) -> tuple[list[dict], str]:
     # Strip BOM and skip any non-header preamble lines
@@ -153,7 +119,7 @@ def parse_csv(content: str) -> tuple[list[dict], str]:
                 amount = -raw  # Chase checking: negative = debit; flip to positive = expense
 
             amount = round(amount, 2)
-            category = "Income" if amount < 0 else categorize(merchant)
+            category = "Income" if amount < 0 else keyword_categorize(merchant)
 
             rows.append({
                 "date": date,

@@ -32,6 +32,7 @@ export const api = {
       return req('GET', `/transactions/${qs ? '?' + qs : ''}`)
     },
     remove: (id) => req('DELETE', `/transactions/${id}`),
+    recategorize: (id, category) => req('PATCH', `/transactions/${id}/category`, { category }),
   },
   budgets: {
     list: () => req('GET', '/budgets/'),

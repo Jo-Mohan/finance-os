@@ -51,6 +51,7 @@ export default function Budget({ baseSalary = 150000, bonusPct = 10 }) {
   const [loadingTxns, setLoadingTxns] = useState(true)
   const [selectedMonth, setSelectedMonth] = useState(currentMonth())
   const [showTxns, setShowTxns] = useState(false)
+  const [editingCat, setEditingCat] = useState(null) // transaction id being re-categorized
   const [showLimits, setShowLimits] = useState(false)
   const [accountType, setAccountType] = useState('credit_card')
   const [importing, setImporting] = useState(false)
@@ -113,6 +114,14 @@ export default function Budget({ baseSalary = 150000, bonusPct = 10 }) {
     try {
       await api.transactions.remove(id)
       setTransactions(prev => prev.filter(t => t.id !== id))
+    } catch (e) { console.error(e) }
+  }
+
+  async function recategorize(id, category) {
+    setEditingCat(null)
+    try {
+      await api.transactions.recategorize(id, category)
+      setTransactions(prev => prev.map(t => t.id === id ? { ...t, category } : t))
     } catch (e) { console.error(e) }
   }
 
@@ -334,10 +343,28 @@ export default function Budget({ baseSalary = 150000, bonusPct = 10 }) {
                       </span>
                     </div>
                     <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0 }}>
-                      <span className={`badge${CAT_BADGE[t.category] ? ` badge-${CAT_BADGE[t.category]}` : ''}`}
-                        style={{ background: 'var(--color-background-secondary)', color: 'var(--color-text-tertiary)' }}>
-                        {t.category}
-                      </span>
+                      {editingCat === t.id ? (
+                        <select
+                          autoFocus
+                          defaultValue={t.category}
+                          onChange={e => recategorize(t.id, e.target.value)}
+                          onBlur={() => setEditingCat(null)}
+                          style={{ fontSize: 11, padding: '2px 4px' }}
+                        >
+                          {['Rent','Food','Transport','Entertainment','Other','Income'].map(c => (
+                            <option key={c}>{c}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span
+                          className={`badge${CAT_BADGE[t.category] ? ` badge-${CAT_BADGE[t.category]}` : ''}`}
+                          style={{ background: 'var(--color-background-secondary)', color: 'var(--color-text-tertiary)', cursor: 'pointer' }}
+                          title="Click to change category"
+                          onClick={() => setEditingCat(t.id)}
+                        >
+                          {t.category}
+                        </span>
+                      )}
                       <span style={{
                         fontSize: 13, fontWeight: 500, minWidth: 64, textAlign: 'right',
                         color: t.amount < 0 ? 'var(--color-text-success)' : 'var(--color-text-primary)',

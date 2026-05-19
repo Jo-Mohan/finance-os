@@ -52,6 +52,14 @@ class Budget(Base):
     monthly_limit = Column(Float, default=0)
 
 
+class MerchantRule(Base):
+    __tablename__ = "merchant_rules"
+    id = Column(Integer, primary_key=True, index=True)
+    pattern = Column(String, unique=True, index=True)   # normalized merchant text
+    category = Column(String, nullable=False)
+    source = Column(String, default="user")             # user | llm | seed
+
+
 class Transaction(Base):
     __tablename__ = "transactions"
     id = Column(Integer, primary_key=True, index=True)
