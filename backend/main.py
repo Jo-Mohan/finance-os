@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine
@@ -6,13 +7,15 @@ from routers import scenarios, accounts, cards, transactions, budgets
 
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Finance OS API", version="0.3.0")
 
-
-@app.on_event("startup")
-async def on_startup():
+@asynccontextmanager
+async def lifespan(app):
     from seed import seed_if_empty
     seed_if_empty()
+    yield
+
+
+app = FastAPI(title="Finance OS API", version="0.3.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

@@ -64,11 +64,14 @@ def normalize(desc: str) -> str:
     d = re.sub(r'^\d[\d\s]{3,}', '', d)
     # Confirmation numbers
     d = re.sub(r'\s+(conf#|#)\s*\w+', '', d, flags=re.IGNORECASE)
-    # Trailing "City ST" with space — only when last token is a known state
+    # Trailing "Word STATE" with a space — "SAN JOSE CA", "HONOLULU HI"
     d = re.sub(rf'\s+\S+\s+({_STATE_PAT})\s*$', '', d)
-    # Fused "CityCA" — only strip if last exactly 2 chars are a known state
-    if len(d) >= 3 and d[-2:] in _STATES and d[-3] != ' ':
-        d = d[:-2]
+    # Fused "CitySTATE" — "FRANCISCOCA" → only apply when the base (before the 2-char suffix)
+    # contains a space (meaning it looks like a multi-word city, not a brand name like "starbucks")
+    if len(d) >= 5 and d[-2:] in _STATES:
+        base = d[:-2]
+        if ' ' in base:  # multi-word → city name fused with state, safe to strip
+            d = base
     return re.sub(r'\s{2,}', ' ', d).strip()
 
 
